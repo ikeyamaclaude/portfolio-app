@@ -88,7 +88,20 @@ def get_prices():
             "error": error,
         })
 
-    return jsonify({"results": results})
+    fx_price, _ = _fetch_price("JPY=X")
+    fx = {"symbol": "JPY=X", "rate": fx_price, "error": None if fx_price else "為替レートを取得できませんでした"}
+
+    return jsonify({"results": results, "fx": fx})
+
+
+@app.route("/api/fx", methods=["GET"])
+def get_fx():
+    fx_price, _ = _fetch_price("JPY=X")
+    return jsonify({
+        "symbol": "JPY=X",
+        "rate": fx_price,
+        "error": None if fx_price else "為替レートを取得できませんでした",
+    })
 
 
 if __name__ == "__main__":

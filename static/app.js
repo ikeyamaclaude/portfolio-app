@@ -2,13 +2,13 @@
   "use strict";
 
   const STORAGE_KEY = "portfolio.brokers.v1";
-  const FX_KEY = "portfolio.fxRate.v1";
+  const FX_CACHE_KEY = "portfolio.fxRate.cache.v1";
   const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
   /** @type {{id:string,name:string,stocks:Array}[]} */
   let brokers = loadBrokers();
   let prices = {};
-  let fxRate = Number(localStorage.getItem(FX_KEY)) || 150;
+  let fxRate = Number(localStorage.getItem(FX_CACHE_KEY)) || null;
 
   const brokersEl = document.getElementById("brokers");
   const totalCostEl = document.getElementById("total-cost");
@@ -16,9 +16,10 @@
   const totalPlEl = document.getElementById("total-pl");
   const totalPlRateEl = document.getElementById("total-pl-rate");
   const lastUpdatedEl = document.getElementById("last-updated");
-  const fxInput = document.getElementById("fx-rate");
+  const fxRateDisplay = document.getElementById("fx-rate-display");
+  const fxRateMeta = document.getElementById("fx-rate-meta");
 
-  fxInput.value = fxRate;
+  updateFxDisplay();
 
   // ===== Storage =====
   function loadBrokers() {
@@ -94,9 +95,10 @@
     const shares = Number(stock.shares) || 0;
     const cost = Number(stock.cost) || 0;
     const fx = stock.market === "us" ? fxRate : 1;
-    const costJpy = cost * shares * fx;
-    const valueJpy = price != null ? price * shares * fx : null;
-    const pl = valueJpy != null ? valueJpy - costJpy : null;
+    const fxReady = stock.market !== "us" || (fxRate != null && fxRate > 0);
+    const costJpy = fxReady ? cost * shares * fx : null;
+    const valueJpy = fxReady && price != null ? price * shares * fx : null;
+    const pl = costJpy != null && valueJpy != null ? valueJpy - costJpy : null;
     const plRate = pl != null && costJpy > 0 ? (pl / costJpy) * 100 : null;
     return { price, shares, cost, costJpy, valueJpy, pl, plRate };
   }
@@ -107,7 +109,7 @@
     let hasPrice = false;
     for (const s of broker.stocks) {
       const c = calcStock(s);
-      costJpy += c.costJpy;
+      if (c.costJpy != null) costJpy += c.costJpy;
       if (c.valueJpy != null) {
         valueJpy += c.valueJpy;
         hasPrice = true;
@@ -233,7 +235,7 @@
         <td>${numFmt.format(c.shares)}</td>
         <td>${formatPrice(c.cost, stock.market)}</td>
         <td>${formatPrice(c.price, stock.market)}</td>
-        <td>${formatYen(c.costJpy)}</td>
+        <td>${c.costJpy != null ? formatYen(c.costJpy) : "—"}</td>
         <td>${c.valueJpy != null ? formatYen(c.valueJpy) : "—"}</td>
         <td class="${plClass(c.pl)}">${c.pl != null ? signed(c.pl) : "—"}</td>
         <td class="${plClass(c.pl)}">${c.plRate != null ? signedPct(c.plRate) : "—"}</td>
@@ -368,6 +370,22 @@
     render();
   }
 
+  // ===== FX display =====
+  function updateFxDisplay(meta) {
+    fxRateDisplay.textContent = fxRate != null && fxRate > 0 ? numFmt.format(fxRate) : "—";
+    fxRateMeta.textContent = meta || "";
+  }
+
+  function applyFx(fx) {
+    if (fx && fx.rate && fx.rate > 0) {
+      fxRate = Number(fx.rate);
+      localStorage.setItem(FX_CACHE_KEY, String(fxRate));
+      updateFxDisplay();
+    } else if (fx && fx.error) {
+      updateFxDisplay("(取得失敗)");
+    }
+  }
+
   // ===== Price fetch =====
   async function fetchPrices() {
     const items = [];
@@ -380,23 +398,27 @@
         items.push({ code: s.code, market: s.market });
       }
     }
-    if (items.length === 0) {
-      lastUpdatedEl.textContent = "銘柄なし";
-      return;
-    }
 
     lastUpdatedEl.textContent = "更新中...";
     try {
-      const res = await fetch("/api/prices", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items }),
-      });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      const data = await res.json();
+      let data;
+      if (items.length === 0) {
+        const res = await fetch("/api/fx");
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        data = { results: [], fx: await res.json() };
+      } else {
+        const res = await fetch("/api/prices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ items }),
+        });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        data = await res.json();
+      }
       for (const r of data.results) {
         prices[priceKey(r.market, r.code)] = { price: r.price, error: r.error };
       }
+      applyFx(data.fx);
       const now = new Date();
       lastUpdatedEl.textContent = "最終更新: " + now.toLocaleTimeString("ja-JP");
       render();
@@ -408,19 +430,9 @@
 
   document.getElementById("refresh-btn").addEventListener("click", fetchPrices);
 
-  // ===== FX rate =====
-  fxInput.addEventListener("change", () => {
-    const v = Number(fxInput.value);
-    if (v > 0) {
-      fxRate = v;
-      localStorage.setItem(FX_KEY, String(v));
-      render();
-    }
-  });
-
   // ===== Export / Import =====
   document.getElementById("export-btn").addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify({ brokers, fxRate }, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({ brokers }, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -440,11 +452,6 @@
       if (!Array.isArray(data.brokers)) throw new Error("不正なファイル形式");
       if (!confirm("現在のデータを上書きしてインポートしますか？")) return;
       brokers = data.brokers;
-      if (data.fxRate) {
-        fxRate = Number(data.fxRate) || fxRate;
-        fxInput.value = fxRate;
-        localStorage.setItem(FX_KEY, String(fxRate));
-      }
       saveBrokers();
       render();
       fetchPrices();
