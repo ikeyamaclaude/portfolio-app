@@ -19,8 +19,6 @@
   const fxRateDisplay = document.getElementById("fx-rate-display");
   const fxRateMeta = document.getElementById("fx-rate-meta");
 
-  updateFxDisplay();
-
   // ===== Storage =====
   function loadBrokers() {
     try {
@@ -463,6 +461,7 @@
   });
 
   // ===== Init =====
+  updateFxDisplay();
   render();
   fetchPrices();
   setInterval(fetchPrices, REFRESH_INTERVAL_MS);
