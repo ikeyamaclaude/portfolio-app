@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ポートフォリオ管理</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="topbar">
+  <h1>ポートフォリオ管理</h1>
+  <div class="topbar-actions">
+    <span id="last-updated" class="muted">未更新</span>
+    <button id="refresh-btn" class="btn btn-primary">株価を更新</button>
+  </div>
+</header>
+
+<main>
+  <section class="summary-card">
+    <h2>全体合計</h2>
+    <div class="summary-grid">
+      <div>
+        <div class="label">取得金額</div>
+        <div id="total-cost" class="value">¥0</div>
+      </div>
+      <div>
+        <div class="label">評価額</div>
+        <div id="total-value" class="value">¥0</div>
+      </div>
+      <div>
+        <div class="label">損益</div>
+        <div id="total-pl" class="value">¥0</div>
+      </div>
+      <div>
+        <div class="label">損益率</div>
+        <div id="total-pl-rate" class="value">0.00%</div>
+      </div>
+    </div>
+    <p class="hint">※ 米国株は1USD=<input id="fx-rate" type="number" min="0" step="0.01" value="150"> 円で換算します。</p>
+  </section>
+
+  <section class="actions">
+    <button id="add-broker-btn" class="btn">+ 証券会社を追加</button>
+    <button id="export-btn" class="btn">エクスポート</button>
+    <button id="import-btn" class="btn">インポート</button>
+    <input id="import-file" type="file" accept="application/json" hidden>
+  </section>
+
+  <section id="brokers"></section>
+</main>
+
+<!-- 銘柄編集モーダル -->
+<div id="stock-modal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="stock-modal-title">銘柄を追加</h3>
+    <form id="stock-form">
+      <label>市場
+        <select name="market" required>
+          <option value="jp">日本株</option>
+          <option value="us">米国株</option>
+        </select>
+      </label>
+      <label>銘柄コード
+        <input name="code" type="text" required placeholder="例: 7203 / AAPL">
+      </label>
+      <label>銘柄名
+        <input name="name" type="text" required placeholder="例: トヨタ自動車">
+      </label>
+      <label>取得価格
+        <input name="cost" type="number" step="0.0001" min="0" required>
+      </label>
+      <label>保有株数
+        <input name="shares" type="number" step="1" min="0" required>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-action="cancel">キャンセル</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 証券会社編集モーダル -->
+<div id="broker-modal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="broker-modal-title">証券会社を追加</h3>
+    <form id="broker-form">
+      <label>証券会社名
+        <input name="name" type="text" required placeholder="例: SBI証券">
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-action="cancel">キャンセル</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

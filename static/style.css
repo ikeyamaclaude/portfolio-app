@@ -1,0 +1,268 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", system-ui, sans-serif;
+  background: #f4f6f9;
+  color: #222;
+  line-height: 1.5;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: #1f2937;
+  color: #fff;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.muted { color: #cbd5e1; font-size: 13px; }
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.summary-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 24px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  margin-bottom: 20px;
+}
+
+.summary-card h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  color: #374151;
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.summary-grid .label {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.summary-grid .value {
+  font-size: 22px;
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+.hint {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 12px 0 0;
+}
+
+.hint input {
+  width: 80px;
+  padding: 4px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 8px 14px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #1f2937;
+  transition: background 0.15s;
+}
+
+.btn:hover { background: #f3f4f6; }
+
+.btn-primary {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.btn-primary:hover { background: #1d4ed8; }
+
+.btn-danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.btn-danger:hover { background: #fef2f2; }
+
+.btn-small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.broker-card {
+  background: #fff;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+
+.broker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: #eef2ff;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.broker-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e3a8a;
+}
+
+.broker-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.broker-stats span {
+  color: #374151;
+}
+
+.broker-actions {
+  display: flex;
+  gap: 6px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th, td {
+  padding: 10px 12px;
+  text-align: right;
+  border-bottom: 1px solid #f1f5f9;
+  white-space: nowrap;
+}
+
+th:first-child, td:first-child,
+th:nth-child(2), td:nth-child(2) {
+  text-align: left;
+}
+
+th {
+  background: #f9fafb;
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+tr:last-child td { border-bottom: none; }
+
+.empty {
+  padding: 20px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.profit { color: #16a34a; font-weight: 600; }
+.loss { color: #dc2626; font-weight: 600; }
+.neutral { color: #4b5563; }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal.hidden { display: none; }
+
+.modal-content {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 420px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+.modal-content h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+
+.modal-content label {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.modal-content input,
+.modal-content select {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  margin-top: 4px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tag {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 11px;
+  border-radius: 4px;
+  background: #e0e7ff;
+  color: #3730a3;
+  margin-right: 6px;
+}
+
+.tag.us { background: #fef3c7; color: #92400e; }
+
+.error-text {
+  color: #b91c1c;
+  font-size: 11px;
+}
