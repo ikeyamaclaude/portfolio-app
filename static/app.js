@@ -5,8 +5,8 @@
   const FX_CACHE_KEY = "portfolio.fxRate.cache.v1";
   const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 
-  /** @type {{id:string,name:string,stocks:Array}[]} */
-  let brokers = loadBrokers();
+  /** @type {{id:string,name:string,stocks:Array,cash:{jpy:number,usd:number}}[]} */
+  let brokers = normalizeBrokers(loadBrokers());
   let prices = {};
   let fxRate = Number(localStorage.getItem(FX_CACHE_KEY)) || null;
 
@@ -31,6 +31,14 @@
       console.error("loadBrokers failed", e);
       return [];
     }
+  }
+
+  function normalizeBrokers(list) {
+    for (const b of list) {
+      const cash = b.cash && typeof b.cash === "object" ? b.cash : {};
+      b.cash = { jpy: Number(cash.jpy) || 0, usd: Number(cash.usd) || 0 };
+    }
+    return list;
   }
 
   function saveBrokers() {
@@ -101,6 +109,31 @@
     return { price, shares, cost, costJpy, valueJpy, pl, plRate };
   }
 
+  function calcCashRows(broker) {
+    const cash = broker.cash || { jpy: 0, usd: 0 };
+    const jpy = Number(cash.jpy) || 0;
+    const usd = Number(cash.usd) || 0;
+    const rows = [];
+    if (jpy > 0) {
+      rows.push({ currency: "jpy", label: "日本円", amount: jpy, jpyAmount: jpy });
+    }
+    if (usd > 0) {
+      const ready = fxRate != null && fxRate > 0;
+      rows.push({ currency: "usd", label: "米ドル", amount: usd, jpyAmount: ready ? usd * fxRate : null });
+    }
+    return rows;
+  }
+
+  function calcCashSummary(broker) {
+    const cash = broker.cash || { jpy: 0, usd: 0 };
+    const jpy = Number(cash.jpy) || 0;
+    const usd = Number(cash.usd) || 0;
+    const fxReady = fxRate != null && fxRate > 0;
+    const usdJpy = usd === 0 ? 0 : (fxReady ? usd * fxRate : null);
+    const total = usdJpy != null ? jpy + usdJpy : null;
+    return { jpy, usd, usdJpy, total };
+  }
+
   function calcBroker(broker) {
     let costJpy = 0;
     let valueJpy = 0;
@@ -113,9 +146,17 @@
         hasPrice = true;
       }
     }
+    const cashRows = calcCashRows(broker);
+    for (const row of cashRows) {
+      if (row.jpyAmount != null) {
+        costJpy += row.jpyAmount;
+        valueJpy += row.jpyAmount;
+        hasPrice = true;
+      }
+    }
     const pl = hasPrice ? valueJpy - costJpy : null;
     const plRate = pl != null && costJpy > 0 ? (pl / costJpy) * 100 : null;
-    return { costJpy, valueJpy: hasPrice ? valueJpy : null, pl, plRate };
+    return { costJpy, valueJpy: hasPrice ? valueJpy : null, pl, plRate, cashRows };
   }
 
   // ===== Render =====
@@ -171,6 +212,9 @@
 
     const header = document.createElement("div");
     header.className = "broker-header";
+    const cashBothSet = (Number(broker.cash?.jpy) || 0) > 0 && (Number(broker.cash?.usd) || 0) > 0;
+    const cashSummary = calcCashSummary(broker);
+
     header.innerHTML = `
       <div class="broker-title">${escapeHtml(broker.name)}</div>
       <div class="broker-stats">
@@ -181,20 +225,30 @@
       </div>
       <div class="broker-actions">
         <button class="btn btn-small" data-act="add-stock">+ 銘柄</button>
+        ${cashBothSet ? "" : '<button class="btn btn-small" data-act="add-cash">+ 現金</button>'}
         <button class="btn btn-small" data-act="edit-broker">名称変更</button>
         <button class="btn btn-small btn-danger" data-act="delete-broker">削除</button>
+      </div>
+      <div class="broker-cash-summary">
+        <span>日本円合計: <strong>${formatYen(cashSummary.jpy)}</strong></span>
+        <span>米ドル合計: <strong>${formatPrice(cashSummary.usd, "us")}</strong> <span class="muted">(${cashSummary.usdJpy != null ? `≈${formatYen(cashSummary.usdJpy)}` : "—"})</span></span>
+        <span>資金残高合計: <strong>${cashSummary.total != null ? formatYen(cashSummary.total) : "—"}</strong></span>
       </div>
     `;
     card.appendChild(header);
 
     header.querySelector('[data-act="add-stock"]').addEventListener("click", () => openStockModal(broker.id, null));
+    const addCashBtn = header.querySelector('[data-act="add-cash"]');
+    if (addCashBtn) addCashBtn.addEventListener("click", () => openCashModal(broker.id, null));
     header.querySelector('[data-act="edit-broker"]').addEventListener("click", () => openBrokerModal(broker));
     header.querySelector('[data-act="delete-broker"]').addEventListener("click", () => deleteBroker(broker.id));
 
-    if (broker.stocks.length === 0) {
+    const cashRows = agg.cashRows;
+
+    if (broker.stocks.length === 0 && cashRows.length === 0) {
       const empty = document.createElement("div");
       empty.className = "empty";
-      empty.textContent = "銘柄がまだありません。「+ 銘柄」から追加してください。";
+      empty.textContent = "銘柄・現金がまだありません。「+ 銘柄」または「+ 現金」から追加してください。";
       card.appendChild(empty);
       return card;
     }
@@ -247,6 +301,31 @@
       tbody.appendChild(tr);
     }
 
+    for (const row of cashRows) {
+      const tr = document.createElement("tr");
+      const amountDisplay = row.currency === "usd"
+        ? formatPrice(row.amount, "us") + (row.jpyAmount != null ? `（≈${formatYen(row.jpyAmount)}）` : "（為替レート取得待ち）")
+        : formatPrice(row.amount, "jp");
+      tr.innerHTML = `
+        <td>${row.label}</td>
+        <td><span class="tag cash">現金</span></td>
+        <td>—</td>
+        <td>—</td>
+        <td>${amountDisplay}</td>
+        <td>${row.jpyAmount != null ? formatYen(row.jpyAmount) : "—"}</td>
+        <td>${row.jpyAmount != null ? formatYen(row.jpyAmount) : "—"}</td>
+        <td class="${row.jpyAmount != null ? "neutral" : ""}">${row.jpyAmount != null ? signed(0) : "—"}</td>
+        <td class="${row.jpyAmount != null ? "neutral" : ""}">${row.jpyAmount != null ? signedPct(0) : "—"}</td>
+        <td>
+          <button class="btn btn-small" data-act="edit-cash">編集</button>
+          <button class="btn btn-small btn-danger" data-act="delete-cash">削除</button>
+        </td>
+      `;
+      tr.querySelector('[data-act="edit-cash"]').addEventListener("click", () => openCashModal(broker.id, row.currency));
+      tr.querySelector('[data-act="delete-cash"]').addEventListener("click", () => deleteCashRow(broker.id, row.currency));
+      tbody.appendChild(tr);
+    }
+
     card.appendChild(table);
     return card;
   }
@@ -284,7 +363,7 @@
       const b = brokers.find(b => b.id === editingBrokerId);
       if (b) b.name = name;
     } else {
-      brokers.push({ id: uid(), name, stocks: [] });
+      brokers.push({ id: uid(), name, stocks: [], cash: { jpy: 0, usd: 0 } });
     }
     saveBrokers();
     closeBrokerModal();
@@ -364,6 +443,81 @@
     if (!stock) return;
     if (!confirm(`「${stock.name}」を削除しますか？`)) return;
     broker.stocks = broker.stocks.filter(s => s.id !== stockId);
+    saveBrokers();
+    render();
+  }
+
+  // ===== Cash =====
+  const cashModal = document.getElementById("cash-modal");
+  const cashForm = document.getElementById("cash-form");
+  const cashModalTitle = document.getElementById("cash-modal-title");
+  const cashCurrencyLabel = cashForm.currency.closest("label");
+  const cashAmountLabel = document.getElementById("cash-amount-label");
+  const cashSubmitBtn = document.getElementById("cash-submit-btn");
+  let editingCashBrokerId = null;
+  let editingCashCurrency = null;
+
+  const CASH_CURRENCY_LABELS = { jpy: "日本円", usd: "米ドル" };
+
+  function openCashModal(brokerId, currency) {
+    const broker = brokers.find(b => b.id === brokerId);
+    if (!broker) return;
+    editingCashBrokerId = brokerId;
+    editingCashCurrency = currency || null;
+
+    if (currency) {
+      cashModalTitle.textContent = `現金を編集 - ${broker.name}（${CASH_CURRENCY_LABELS[currency]}）`;
+      cashCurrencyLabel.style.display = "none";
+      cashForm.currency.required = false;
+      cashAmountLabel.firstChild.textContent = "金額";
+      cashSubmitBtn.textContent = "保存";
+      cashForm.amount.value = Number((broker.cash || {})[currency]) || "";
+    } else {
+      cashModalTitle.textContent = `現金を追加 - ${broker.name}`;
+      cashCurrencyLabel.style.display = "";
+      cashForm.currency.required = true;
+      cashAmountLabel.firstChild.textContent = "追加する金額";
+      cashSubmitBtn.textContent = "追加";
+      const cash = broker.cash || { jpy: 0, usd: 0 };
+      const options = [];
+      if (!(Number(cash.jpy) > 0)) options.push(["jpy", "日本円 (¥)"]);
+      if (!(Number(cash.usd) > 0)) options.push(["usd", "米ドル ($)"]);
+      cashForm.currency.innerHTML = options.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
+      cashForm.amount.value = "";
+    }
+
+    cashModal.classList.remove("hidden");
+    cashForm.amount.focus();
+  }
+
+  function closeCashModal() {
+    cashModal.classList.add("hidden");
+    editingCashBrokerId = null;
+    editingCashCurrency = null;
+  }
+
+  cashForm.addEventListener("submit", e => {
+    e.preventDefault();
+    const broker = brokers.find(b => b.id === editingCashBrokerId);
+    if (!broker) return;
+    const currency = editingCashCurrency || (cashForm.currency.value === "usd" ? "usd" : "jpy");
+    const amount = Number(cashForm.amount.value);
+    if (!amount || amount <= 0) return;
+    if (!broker.cash || typeof broker.cash !== "object") broker.cash = { jpy: 0, usd: 0 };
+    broker.cash[currency] = amount;
+    saveBrokers();
+    closeCashModal();
+    render();
+  });
+
+  cashModal.querySelector('[data-action="cancel"]').addEventListener("click", closeCashModal);
+
+  function deleteCashRow(brokerId, currency) {
+    const broker = brokers.find(b => b.id === brokerId);
+    if (!broker) return;
+    if (!confirm(`「${CASH_CURRENCY_LABELS[currency]}」の現金を削除しますか？`)) return;
+    if (!broker.cash) return;
+    broker.cash[currency] = 0;
     saveBrokers();
     render();
   }
@@ -449,7 +603,7 @@
       const data = JSON.parse(text);
       if (!Array.isArray(data.brokers)) throw new Error("不正なファイル形式");
       if (!confirm("現在のデータを上書きしてインポートしますか？")) return;
-      brokers = data.brokers;
+      brokers = normalizeBrokers(data.brokers);
       saveBrokers();
       render();
       fetchPrices();

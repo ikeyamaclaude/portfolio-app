@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>各証券会社の銘柄管理</title>
+<title>証券会社毎の銘柄管理（池山式）</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 <header class="topbar">
-  <h1>各証券会社の銘柄管理</h1>
+  <h1>証券会社毎の銘柄管理（池山式）</h1>
   <div class="topbar-actions">
     <span id="last-updated" class="muted">未更新</span>
     <button id="refresh-btn" class="btn btn-primary">株価を更新</button>
@@ -75,6 +75,28 @@
       <div class="modal-actions">
         <button type="button" class="btn" data-action="cancel">キャンセル</button>
         <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 現金追加モーダル -->
+<div id="cash-modal" class="modal hidden">
+  <div class="modal-content">
+    <h3 id="cash-modal-title">現金を追加</h3>
+    <form id="cash-form">
+      <label>通貨
+        <select name="currency" required>
+          <option value="jpy">日本円 (¥)</option>
+          <option value="usd">米ドル ($)</option>
+        </select>
+      </label>
+      <label id="cash-amount-label">追加する金額
+        <input name="amount" type="number" step="0.01" min="0.01" required>
+      </label>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-action="cancel">キャンセル</button>
+        <button type="submit" id="cash-submit-btn" class="btn btn-primary">追加</button>
       </div>
     </form>
   </div>
