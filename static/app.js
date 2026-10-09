@@ -36,9 +36,32 @@
   function normalizeBrokers(list) {
     for (const b of list) {
       const cash = b.cash && typeof b.cash === "object" ? b.cash : {};
-      b.cash = { jpy: Number(cash.jpy) || 0, usd: Number(cash.usd) || 0 };
+      b.cash = {
+        jpy: Number(cash.jpy) || 0,
+        usd: Number(cash.usd) || 0,
+        jpyDate: typeof cash.jpyDate === "string" ? cash.jpyDate : "",
+        usdDate: typeof cash.usdDate === "string" ? cash.usdDate : "",
+      };
+      if (Array.isArray(b.stocks)) {
+        for (const s of b.stocks) {
+          s.date = typeof s.date === "string" ? s.date : "";
+        }
+      }
     }
     return list;
+  }
+
+  function todayDateStr() {
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  }
+
+  function formatDate(dateStr) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr || "");
+    if (!m) return "";
+    return `${m[1]}/${m[2]}/${m[3]}`;
   }
 
   function saveBrokers() {
@@ -115,11 +138,11 @@
     const usd = Number(cash.usd) || 0;
     const rows = [];
     if (jpy > 0) {
-      rows.push({ currency: "jpy", label: "日本円", amount: jpy, jpyAmount: jpy });
+      rows.push({ currency: "jpy", label: "日本円", amount: jpy, jpyAmount: jpy, date: cash.jpyDate || "" });
     }
     if (usd > 0) {
       const ready = fxRate != null && fxRate > 0;
-      rows.push({ currency: "usd", label: "米ドル", amount: usd, jpyAmount: ready ? usd * fxRate : null });
+      rows.push({ currency: "usd", label: "米ドル", amount: usd, jpyAmount: ready ? usd * fxRate : null, date: cash.usdDate || "" });
     }
     return rows;
   }
@@ -259,6 +282,7 @@
         <tr>
           <th>銘柄</th>
           <th>コード</th>
+          <th>日付</th>
           <th>株数</th>
           <th>取得価格</th>
           <th>現在値</th>
@@ -284,6 +308,7 @@
           ${escapeHtml(stock.code)}
           ${err ? `<div class="error-text">${escapeHtml(err)}</div>` : ""}
         </td>
+        <td>${formatDate(stock.date)}</td>
         <td>${numFmt.format(c.shares)}</td>
         <td>${formatPrice(c.cost, stock.market)}</td>
         <td>${formatPrice(c.price, stock.market)}</td>
@@ -309,7 +334,7 @@
       tr.innerHTML = `
         <td>${row.label}</td>
         <td><span class="tag cash">現金</span></td>
-        <td>—</td>
+        <td>${formatDate(row.date)}</td>
         <td>—</td>
         <td>${amountDisplay}</td>
         <td>${row.jpyAmount != null ? formatYen(row.jpyAmount) : "—"}</td>
@@ -398,6 +423,7 @@
     stockForm.market.value = stock ? stock.market : "jp";
     stockForm.code.value = stock ? stock.code : "";
     stockForm.name.value = stock ? stock.name : "";
+    stockForm.date.value = stock ? (stock.date || "") : todayDateStr();
     stockForm.cost.value = stock ? stock.cost : "";
     stockForm.shares.value = stock ? stock.shares : "";
     stockModal.classList.remove("hidden");
@@ -418,6 +444,7 @@
       market: stockForm.market.value,
       code: stockForm.code.value.trim().toUpperCase(),
       name: stockForm.name.value.trim(),
+      date: stockForm.date.value || "",
       cost: Number(stockForm.cost.value),
       shares: Number(stockForm.shares.value),
     };
@@ -472,6 +499,7 @@
       cashAmountLabel.firstChild.textContent = "金額";
       cashSubmitBtn.textContent = "保存";
       cashForm.amount.value = Number((broker.cash || {})[currency]) || "";
+      cashForm.date.value = (broker.cash || {})[currency + "Date"] || "";
     } else {
       cashModalTitle.textContent = `現金を追加 - ${broker.name}`;
       cashCurrencyLabel.style.display = "";
@@ -484,6 +512,7 @@
       if (!(Number(cash.usd) > 0)) options.push(["usd", "米ドル ($)"]);
       cashForm.currency.innerHTML = options.map(([v, t]) => `<option value="${v}">${t}</option>`).join("");
       cashForm.amount.value = "";
+      cashForm.date.value = todayDateStr();
     }
 
     cashModal.classList.remove("hidden");
@@ -505,6 +534,7 @@
     if (!amount || amount <= 0) return;
     if (!broker.cash || typeof broker.cash !== "object") broker.cash = { jpy: 0, usd: 0 };
     broker.cash[currency] = amount;
+    broker.cash[currency + "Date"] = cashForm.date.value || "";
     saveBrokers();
     closeCashModal();
     render();
@@ -518,6 +548,7 @@
     if (!confirm(`「${CASH_CURRENCY_LABELS[currency]}」の現金を削除しますか？`)) return;
     if (!broker.cash) return;
     broker.cash[currency] = 0;
+    broker.cash[currency + "Date"] = "";
     saveBrokers();
     render();
   }
