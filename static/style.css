@@ -190,6 +190,11 @@ main {
   font-size: 11px;
 }
 
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -198,13 +203,13 @@ table {
 
 th, td {
   padding: 10px 12px;
-  text-align: right;
+  text-align: center;
   border-bottom: 1px solid #f1f5f9;
   white-space: nowrap;
 }
 
-th:first-child, td:first-child,
-th:nth-child(2), td:nth-child(2) {
+th:nth-child(n+4):nth-child(-n+10),
+td:nth-child(n+4):nth-child(-n+10) {
   text-align: left;
 }
 

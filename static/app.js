@@ -336,6 +336,7 @@
         <td><span class="tag cash">現金</span></td>
         <td>${formatDate(row.date)}</td>
         <td>—</td>
+        <td>—</td>
         <td>${amountDisplay}</td>
         <td>${row.jpyAmount != null ? formatYen(row.jpyAmount) : "—"}</td>
         <td>${row.jpyAmount != null ? formatYen(row.jpyAmount) : "—"}</td>
@@ -351,7 +352,10 @@
       tbody.appendChild(tr);
     }
 
-    card.appendChild(table);
+    const tableWrap = document.createElement("div");
+    tableWrap.className = "table-wrap";
+    tableWrap.appendChild(table);
+    card.appendChild(tableWrap);
     return card;
   }
 
